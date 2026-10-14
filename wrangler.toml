@@ -1,0 +1,7 @@
+# Milestone 1: static assets only. The Worker script (Hono API) is added in milestone 2.
+name = "vibe-arcade"
+compatibility_date = "2026-06-01"
+
+[assets]
+directory = "./dist"
+not_found_handling = "single-page-application"
