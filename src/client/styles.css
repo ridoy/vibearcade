@@ -411,10 +411,6 @@ html[data-mode='page'] .stage {
   opacity: 1;
 }
 
-.play {
-  padding: 0 32px;
-}
-
 /* ---------- Pages (browse, submit) ---------- */
 
 .page {

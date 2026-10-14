@@ -1,6 +1,6 @@
 import { PLAYER } from '../config.ts';
 import type { Game } from '../shared/types.ts';
-import { h, icon, ICONS, thumbBackground } from './dom.ts';
+import { h, thumbBackground } from './dom.ts';
 import { toast } from './toast.ts';
 
 const SANDBOX =
@@ -44,16 +44,7 @@ export class Stage {
         ),
       );
     }
-    this.showCard(
-      game,
-      null,
-      h(
-        'button',
-        { class: 'btn btn-primary btn-large play', type: 'button', onclick: () => this.mount(game) },
-        icon(ICONS.play),
-        'Play',
-      ),
-    );
+    this.mount(game);
   }
 
   /** "This game isn't here" page, with whatever action the caller wants (usually Shuffle). */

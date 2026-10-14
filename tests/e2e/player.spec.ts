@@ -2,22 +2,18 @@ import { expect, GAMES, mockGames, SHUFFLEABLE, test } from './fixtures.ts';
 
 const slugFromUrl = (url: string) => new URL(url).pathname.replace('/g/', '');
 
-test('"/" redirects to a shuffled game behind a click-to-play overlay', async ({ arcade: page }) => {
+test('"/" redirects to a shuffled game and loads it right away', async ({ arcade: page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/g\/game-\d+$/);
   const slug = slugFromUrl(page.url());
   const game = GAMES.find((g) => g.slug === slug)!;
-  const action = game.embeddable
-    ? page.getByRole('button', { name: 'Play' })
-    : page.getByRole('link', { name: 'Play on original site ↗' });
-  await expect(action).toBeVisible();
-  await expect(page.locator('iframe')).toHaveCount(0);
+  if (game.embeddable) await expect(page.locator('iframe.game-frame')).toHaveAttribute('src', game.url);
+  else await expect(page.getByRole('link', { name: 'Play on original site ↗' })).toBeVisible();
 });
 
-test('Play mounts a sandboxed iframe, focuses it, and does not shift layout', async ({ arcade: page }) => {
+test('games mount in a focused sandboxed iframe without shifting layout', async ({ arcade: page }) => {
   await page.goto('/g/game-1');
   const stageBefore = await page.locator('#stage').boundingBox();
-  await page.getByRole('button', { name: 'Play' }).click();
   const frame = page.locator('iframe.game-frame');
   await expect(frame).toHaveAttribute('src', 'https://game1.test/');
   await expect(frame).toHaveAttribute(
@@ -33,15 +29,12 @@ test('Play mounts a sandboxed iframe, focuses it, and does not shift layout', as
 test('switching games 20 times leaves exactly one live iframe', async ({ arcade: page }) => {
   await page.goto('/g/game-1');
   for (let i = 0; i < 20; i++) {
-    const play = page.getByRole('button', { name: 'Play' });
-    if (await play.isVisible()) await play.click();
     await page.getByRole('button', { name: 'Shuffle' }).click();
   }
-  // Land on a playable game and start it.
-  while (!(await page.getByRole('button', { name: 'Play' }).isVisible())) {
+  // Land on an embeddable game.
+  while ((await page.locator('iframe').count()) === 0) {
     await page.getByRole('button', { name: 'Shuffle' }).click();
   }
-  await page.getByRole('button', { name: 'Play' }).click();
   await expect(page.locator('iframe')).toHaveCount(1);
   // Old frames are detached, not just hidden, so their audio and loops are gone.
   await expect.poll(() => page.frames().length).toBe(2);
@@ -49,7 +42,7 @@ test('switching games 20 times leaves exactly one live iframe', async ({ arcade:
 
 test('keys pressed inside the game never reach the arcade', async ({ arcade: page }) => {
   await page.goto('/g/game-2');
-  await page.getByRole('button', { name: 'Play' }).click();
+  await page.locator('iframe.game-frame').click();
   const frame = page.frameLocator('iframe.game-frame');
   await expect(frame.locator('#log')).toBeAttached();
   for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' ', 'w', 'a', 's', 'd', 'Shift+ArrowRight', 'Shift+ArrowLeft']) {
@@ -116,14 +109,13 @@ test('non-embeddable games show a fallback card instead of an iframe', async ({ 
   await expect(link).toHaveAttribute('href', 'https://game7.test/');
   await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
   await expect(link).toHaveAttribute('target', '_blank');
-  await expect(page.getByRole('button', { name: 'Play' })).toHaveCount(0);
   await expect(page.locator('iframe')).toHaveCount(0);
 });
 
 test('dead games show a tombstone with no iframe', async ({ arcade: page }) => {
   await page.goto('/g/game-8');
   await expect(page.getByText('This game has gone offline.')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Play' })).toHaveCount(0);
+  await expect(page.locator('iframe')).toHaveCount(0);
 });
 
 test('unknown slugs show a friendly page with Shuffle', async ({ arcade: page }) => {
@@ -138,7 +130,6 @@ test('slow games get a gentle open-in-new-tab toast, not a skip', async ({ page 
   await page.route('https://game5.test/', () => {}); // never responds
   await page.clock.install();
   await page.goto('/g/game-5');
-  await page.getByRole('button', { name: 'Play' }).click();
   await page.clock.runFor(15_500);
   await expect(page.getByRole('link', { name: 'Open in new tab?' })).toHaveAttribute('href', 'https://game5.test/');
   await expect(page).toHaveURL(/\/g\/game-5$/);
@@ -172,5 +163,5 @@ test('browse lists live games and opens them in the player', async ({ arcade: pa
   await expect(page.locator('.card')).toHaveCount(live.length);
   await page.getByRole('link', { name: 'Game 2' }).click();
   await expect(page).toHaveURL(/\/g\/game-2$/);
-  await expect(page.getByRole('button', { name: 'Play' })).toBeVisible();
+  await expect(page.locator('iframe.game-frame')).toHaveAttribute('src', 'https://game2.test/');
 });
